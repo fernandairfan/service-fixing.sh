@@ -25,9 +25,9 @@ check_service() {
     local service_name="$1"
     local service_display_name="$2"
     local status=$(systemctl is-active "$service_name")
+    local current_time=$(date '+%Y-%m-%d %H:%M:%S')  # Timestamp untuk setiap pengecekan
 
     if [ "$status" != "active" ]; then
-        local current_time=$(date '+%Y-%m-%d %H:%M:%S')
         local error_message="━━━━━━━━━━━━━
 🔴 Server Monitoring | @fernandairfan
  ━━━━━━━━━━━━━
