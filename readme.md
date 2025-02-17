@@ -7,3 +7,7 @@ Step ~
 
 Atau langsung
 1. pkill -f service-fixing.sh
+
+Cek status service : 
+
+systemctl status service-fixing.service
