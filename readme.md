@@ -1,0 +1,1 @@
+curl -s https://raw.githubusercontent.com/username/repository/main/service-fixing.sh -o /usr/local/bin/service-fixing.sh && chmod +x /usr/local/bin/service-fixing.sh && bash /usr/local/bin/service-fixing.sh
