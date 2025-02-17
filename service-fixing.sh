@@ -56,6 +56,31 @@ check_service() {
     fi
 }
 
+# Fungsi untuk membuat systemd service
+create_systemd_service() {
+    local service_file="/etc/systemd/system/service-fixing.service"
+    cat <<EOF > "$service_file"
+[Unit]
+Description=Service Fixing Script
+After=network.target
+
+[Service]
+ExecStart=/usr/local/bin/service-fixing.sh
+Restart=always
+User=root
+Environment="TELEGRAM_USER_ID=$TELEGRAM_USER_ID"
+Environment="TELEGRAM_BOT_TOKEN=$TELEGRAM_BOT_TOKEN"
+Environment="DOMAIN=$DOMAIN"
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    systemctl daemon-reload
+    systemctl start service-fixing.service
+    systemctl enable service-fixing.service
+}
+
 # Meminta input dari pengguna
 while [[ -z "$TELEGRAM_USER_ID" ]]; do
     read -p "Masukkan ID User Telegram: " TELEGRAM_USER_ID
@@ -73,6 +98,9 @@ done
 echo "TELEGRAM_USER_ID=$TELEGRAM_USER_ID" > /etc/service-fixing.conf
 echo "TELEGRAM_BOT_TOKEN=$TELEGRAM_BOT_TOKEN" >> /etc/service-fixing.conf
 echo "DOMAIN=$DOMAIN" >> /etc/service-fixing.conf
+
+# Membuat systemd service
+create_systemd_service
 
 # Mengirim notifikasi bahwa server fixing sedang berjalan
 send_telegram_notification "Server Fixing is running..."
