@@ -3,6 +3,7 @@
 # Konfigurasi file log
 LOG_FILE="/var/log/service-fixing.log"
 MAX_LOG_SIZE=1048576  # 1MB (dalam bytes)
+NOTIFICATION_FLAG="/etc/service-fixing.notified"  # File penanda notifikasi
 
 # Fungsi untuk mengirim notifikasi ke Telegram
 send_telegram_notification() {
@@ -102,8 +103,19 @@ echo "DOMAIN=$DOMAIN" >> /etc/service-fixing.conf
 # Membuat systemd service
 create_systemd_service
 
-# Mengirim notifikasi bahwa server fixing sedang berjalan
-send_telegram_notification "Server Fixing is running..."
+# Mengirim notifikasi bahwa server fixing sedang berjalan (hanya sekali)
+if [[ ! -f "$NOTIFICATION_FLAG" ]]; then
+    send_telegram_notification "━━━━━━━━━━━━━
+✅ Server Monitoring | @fernandairfan
+ ━━━━━━━━━━━━━
+⤿ Domain : $DOMAIN
+⤿ Status : Script started successfully!
+⤿ Waktu : $(date '+%Y-%m-%d %H:%M:%S')
+━━━━━━━━━━━━━"
+
+    # Buat file penanda
+    touch "$NOTIFICATION_FLAG"
+fi
 
 echo "Server Fixing is running..."
 
@@ -117,15 +129,6 @@ echo "Server Fixing is running..."
         sleep 5
     done
 ) &
-
-# Beri notifikasi Sukses
-send_telegram_notification "━━━━━━━━━━━━━
-✅ Server Monitoring | @fernandairfan
- ━━━━━━━━━━━━━
-⤿ Domain : $DOMAIN
-⤿ Status : Script started successfully!
-⤿ Waktu : $(date '+%Y-%m-%d %H:%M:%S')
-━━━━━━━━━━━━━"
 
 echo "Sukses! Script berjalan di latar belakang."
 echo "Log pengecekan disimpan di: $LOG_FILE"
