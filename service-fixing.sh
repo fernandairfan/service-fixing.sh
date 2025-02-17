@@ -31,9 +31,9 @@ check_service() {
         local error_message="━━━━━━━━━━━━━
 🔴 Server Monitoring | @fernandairfan
  ━━━━━━━━━━━━━
-Domain : $DOMAIN
-Status Down : $service_display_name🔴
-Waktu Down : $current_time
+⤿ Domain : $DOMAIN
+⤿ Status Down : $service_display_name🔴
+⤿ Waktu Down : $current_time
 ━━━━━━━━━━━━━"
 
         send_telegram_notification "$error_message"
@@ -43,9 +43,9 @@ Waktu Down : $current_time
         local restart_message="━━━━━━━━━━━━━
 ✅ Server Monitoring | @fernandairfan
  ━━━━━━━━━━━━━
-Domain : $DOMAIN
-Restart : $service_display_name✅
-Waktu Restart : $current_time
+⤿ Domain : $DOMAIN
+⤿ Restart : $service_display_name✅
+⤿ Waktu Restart : $current_time
 ━━━━━━━━━━━━━"
 
         send_telegram_notification "$restart_message"
@@ -94,9 +94,9 @@ echo "Server Fixing is running..."
 send_telegram_notification "━━━━━━━━━━━━━
 ✅ Server Monitoring | @fernandairfan
  ━━━━━━━━━━━━━
-Domain : $DOMAIN
-Status : Script started successfully!
-Waktu : $(date '+%Y-%m-%d %H:%M:%S')
+⤿ Domain : $DOMAIN
+⤿ Status : Script started successfully!
+⤿ Waktu : $(date '+%Y-%m-%d %H:%M:%S')
 ━━━━━━━━━━━━━"
 
 echo "Sukses! Script berjalan di latar belakang."
