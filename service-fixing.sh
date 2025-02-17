@@ -57,9 +57,17 @@ Waktu Restart : $current_time
 }
 
 # Meminta input dari pengguna
-read -p "Masukkan ID User Telegram: " TELEGRAM_USER_ID
-read -p "Masukkan Token Bot Telegram: " TELEGRAM_BOT_TOKEN
-read -p "Masukkan Domain: " DOMAIN
+while [[ -z "$TELEGRAM_USER_ID" ]]; do
+    read -p "Masukkan ID User Telegram: " TELEGRAM_USER_ID
+done
+
+while [[ -z "$TELEGRAM_BOT_TOKEN" ]]; do
+    read -p "Masukkan Token Bot Telegram: " TELEGRAM_BOT_TOKEN
+done
+
+while [[ -z "$DOMAIN" ]]; do
+    read -p "Masukkan Domain: " DOMAIN
+done
 
 # Menyimpan data ke file konfigurasi
 echo "TELEGRAM_USER_ID=$TELEGRAM_USER_ID" > /etc/service-fixing.conf
