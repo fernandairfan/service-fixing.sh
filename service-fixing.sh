@@ -60,10 +60,23 @@ send_telegram_notification "Server Fixing is running..."
 
 echo "Server Fixing is running..."
 
-# Loop untuk memeriksa service setiap 5 detik
-while true; do
-    check_service "paradis" "vmess"
-    check_service "sketsa" "vless"
-    check_service "drawit" "trojan"
-    sleep 5
-done
+# Jalankan proses pengecekan service di latar belakang
+(
+    while true; do
+        check_service "paradis" "vmess"
+        check_service "sketsa" "vless"
+        check_service "drawit" "trojan"
+        sleep 5
+    done
+) &
+
+# Beri notifikasi Sukses
+send_telegram_notification "━━━━━━━━━━━━━
+✅ Server Monitoring | @fernandairfan
+ ━━━━━━━━━━━━━
+Domain : $DOMAIN
+Status : Script started successfully!
+Waktu : $(date '+%Y-%m-%d %H:%M:%S')
+━━━━━━━━━━━━━"
+
+echo "Sukses! Script berjalan di latar belakang."
