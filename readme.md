@@ -1,4 +1,4 @@
-Cara menjalankannya :curl -s https://raw.githubusercontent.com/fernandairfan/service-fixing.sh/main/service-fixing.sh -o /usr/local/bin/service-fixing.sh && chmod +x /usr/local/bin/service-fixing.sh && bash /usr/local/bin/service-fixing.sh
+Cara menjalankannya : curl -s https://raw.githubusercontent.com/fernandairfan/service-fixing.sh/main/service-fixing.sh -o /usr/local/bin/service-fixing.sh && chmod +x /usr/local/bin/service-fixing.sh && bash /usr/local/bin/service-fixing.sh
 
 Cara menghentikan Script :
 Step ~
