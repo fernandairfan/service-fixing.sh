@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Konfigurasi file log
+LOG_FILE="/var/log/service-fixing.log"
+MAX_LOG_SIZE=1048576  # 1MB (dalam bytes)
+
 # Fungsi untuk mengirim notifikasi ke Telegram
 send_telegram_notification() {
     local message="$1"
@@ -7,6 +11,13 @@ send_telegram_notification() {
         -d chat_id="$TELEGRAM_USER_ID" \
         -d text="$message" \
         -d parse_mode="Markdown"
+}
+
+# Fungsi untuk membersihkan log jika melebihi ukuran maksimal
+clean_log() {
+    if [[ -f "$LOG_FILE" && $(stat -c%s "$LOG_FILE") -gt $MAX_LOG_SIZE ]]; then
+        echo "[INFO] $(date '+%Y-%m-%d %H:%M:%S') - Log file exceeded maximum size, cleaning up..." > "$LOG_FILE"
+    fi
 }
 
 # Fungsi untuk memeriksa status service
@@ -39,9 +50,9 @@ Waktu Restart : $current_time
 
         send_telegram_notification "$restart_message"
 
-        echo "[ERROR] $current_time - $service_display_name is down and has been restarted." >> /var/log/service-fixing.log
+        echo "[ERROR] $current_time - $service_display_name is down and has been restarted." >> "$LOG_FILE"
     else
-        echo "[INFO] $(date '+%Y-%m-%d %H:%M:%S') - $service_display_name is running normally." >> /var/log/service-fixing.log
+        echo "[INFO] $current_time - $service_display_name is running normally." >> "$LOG_FILE"
     fi
 }
 
@@ -63,6 +74,7 @@ echo "Server Fixing is running..."
 # Jalankan proses pengecekan service di latar belakang
 (
     while true; do
+        clean_log  # Bersihkan log jika melebihi ukuran maksimal
         check_service "paradis" "vmess"
         check_service "sketsa" "vless"
         check_service "drawit" "trojan"
@@ -80,3 +92,4 @@ Waktu : $(date '+%Y-%m-%d %H:%M:%S')
 ━━━━━━━━━━━━━"
 
 echo "Sukses! Script berjalan di latar belakang."
+echo "Log pengecekan disimpan di: $LOG_FILE"
