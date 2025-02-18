@@ -32,7 +32,10 @@ check_service() {
     local current_time=$(date '+%Y-%m-%d %H:%M:%S')
 
     if [ "$status" != "active" ]; then
-        local error_message="━━━━━━━━━━━━━
+        # Cek apakah service benar-benar dalam keadaan error (failed)
+        local is_failed=$(systemctl is-failed "$service_name")
+        if [ "$is_failed" == "failed" ]; then
+            local error_message="━━━━━━━━━━━━━
 *🔴 Server Monitoring*
 ━━━━━━━━━━━━━
 *⤿ Domain :* $DOMAIN
@@ -40,10 +43,10 @@ check_service() {
 *⤿ Waktu Down :* $current_time
 ━━━━━━━━━━━━━"
 
-        send_telegram_notification "$error_message"
-        systemctl restart "$service_name"
+            send_telegram_notification "$error_message"
+            systemctl restart "$service_name"
 
-        local restart_message="━━━━━━━━━━━━━
+            local restart_message="━━━━━━━━━━━━━
 *✅ Server Monitoring*
 ━━━━━━━━━━━━━
 *⤿ Domain :* $DOMAIN
@@ -51,8 +54,11 @@ check_service() {
 *⤿ Waktu Restart :* $current_time
 ━━━━━━━━━━━━━"
 
-        send_telegram_notification "$restart_message"
-        echo "[INFO] $current_time - $service_display_name restarted." >> "$LOG_FILE"
+            send_telegram_notification "$restart_message"
+            echo "[INFO] $current_time - $service_display_name restarted." >> "$LOG_FILE"
+        else
+            echo "[INFO] $current_time - $service_display_name is not active but not in failed state. No action taken." >> "$LOG_FILE"
+        fi
     else
         echo "[INFO] $current_time - $service_display_name is running normally." >> "$LOG_FILE"
     fi
@@ -137,6 +143,18 @@ EOF
     systemctl start service-fixing.service
 
     echo "Service berhasil dibuat dan dijalankan!"
+
+    # Kirim notifikasi bahwa script selesai diinstall
+    local current_time=$(date '+%Y-%m-%d %H:%M:%S')
+    local install_message="━━━━━━━━━━━━━
+*✅ Server Monitoring | @fernandairfan*
+━━━━━━━━━━━━━
+*⤿ Domain :* $DOMAIN
+*⤿ Status :* Script started successfully!
+*⤿ Waktu :* $current_time
+━━━━━━━━━━━━━"
+
+    send_telegram_notification "$install_message"
     exit 0
 }
 
