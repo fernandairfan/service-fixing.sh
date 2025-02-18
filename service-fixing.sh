@@ -64,6 +64,41 @@ check_service() {
     fi
 }
 
+# Fungsi memeriksa log systemd untuk pesan warning
+check_journal_warnings() {
+    local service_name="$1"
+    local service_display_name="$2"
+    local current_time=$(date '+%Y-%m-%d %H:%M:%S')
+
+    # Cek log systemd untuk pesan warning
+    local warning_message=$(journalctl -u "$service_name" -p warning --since "5 minutes ago" | grep "Journal was rotated")
+
+    if [ -n "$warning_message" ]; then
+        local warning_notification="━━━━━━━━━━━━━
+*⚠️ Server Monitoring*
+━━━━━━━━━━━━━
+*⤿ Domain :* $DOMAIN
+*⤿ Warning Detected :* $service_display_name ⚠️
+*⤿ Pesan Warning :* Journal was rotated
+*⤿ Waktu :* $current_time
+━━━━━━━━━━━━━"
+
+        send_telegram_notification "$warning_notification"
+        systemctl restart "$service_name"
+
+        local restart_message="━━━━━━━━━━━━━
+*✅ Server Monitoring*
+━━━━━━━━━━━━━
+*⤿ Domain :* $DOMAIN
+*⤿ Restart :* $service_display_name ✅
+*⤿ Waktu Restart :* $current_time
+━━━━━━━━━━━━━"
+
+        send_telegram_notification "$restart_message"
+        echo "[INFO] $current_time - $service_display_name restarted due to journal rotation warning." >> "$LOG_FILE"
+    fi
+}
+
 # Fungsi memuat konfigurasi
 load_config() {
     if [[ -f "$CONFIG_FILE" ]]; then
@@ -185,6 +220,12 @@ main() {
         check_service "paradis" "vmess"
         check_service "sketsa" "vless"
         check_service "drawit" "trojan"
+
+        # Cek log systemd untuk pesan warning
+        check_journal_warnings "paradis" "vmess"
+        check_journal_warnings "sketsa" "vless"
+        check_journal_warnings "drawit" "trojan"
+
         sleep 120
     done
 }
