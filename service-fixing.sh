@@ -117,30 +117,32 @@ show_menu() {
     esac
 }
 
-# Meminta input dari pengguna
-while [[ -z "$TELEGRAM_BOT_TOKEN" ]]; do
-    read -p "Masukkan Token Bot Telegram: " TELEGRAM_BOT_TOKEN
-done
+# Fungsi utama untuk menjalankan script
+main() {
+    # Tampilkan menu pilihan segera setelah script dijalankan
+    show_menu
 
-while [[ -z "$DOMAIN" ]]; do
-    read -p "Masukkan Domain: " DOMAIN
-done
+    # Meminta input dari pengguna
+    while [[ -z "$TELEGRAM_BOT_TOKEN" ]]; do
+        read -p "Masukkan Token Bot Telegram: " TELEGRAM_BOT_TOKEN
+    done
 
-# Tampilkan menu pilihan
-show_menu
+    while [[ -z "$DOMAIN" ]]; do
+        read -p "Masukkan Domain: " DOMAIN
+    done
 
-# Menyimpan data ke file konfigurasi
-echo "TELEGRAM_BOT_TOKEN=$TELEGRAM_BOT_TOKEN" > "$CONFIG_FILE"
-echo "TELEGRAM_CHAT_ID=$TELEGRAM_CHAT_ID" >> "$CONFIG_FILE"
-echo "TELEGRAM_TOPIC_ID=$TELEGRAM_TOPIC_ID" >> "$CONFIG_FILE"
-echo "DOMAIN=$DOMAIN" >> "$CONFIG_FILE"
+    # Menyimpan data ke file konfigurasi
+    echo "TELEGRAM_BOT_TOKEN=$TELEGRAM_BOT_TOKEN" > "$CONFIG_FILE"
+    echo "TELEGRAM_CHAT_ID=$TELEGRAM_CHAT_ID" >> "$CONFIG_FILE"
+    echo "TELEGRAM_TOPIC_ID=$TELEGRAM_TOPIC_ID" >> "$CONFIG_FILE"
+    echo "DOMAIN=$DOMAIN" >> "$CONFIG_FILE"
 
-# Membuat systemd service
-create_systemd_service
+    # Membuat systemd service
+    create_systemd_service
 
-# Mengirim notifikasi bahwa server fixing sedang berjalan (hanya sekali)
-if [[ ! -f "$NOTIFICATION_FLAG" ]]; then
-    send_telegram_notification "━━━━━━━━━━━━━
+    # Mengirim notifikasi bahwa server fixing sedang berjalan (hanya sekali)
+    if [[ ! -f "$NOTIFICATION_FLAG" ]]; then
+        send_telegram_notification "━━━━━━━━━━━━━
 *✅ Server Monitoring | @fernandairfan*
 ━━━━━━━━━━━━━
 *⤿ Domain :* $DOMAIN
@@ -148,22 +150,26 @@ if [[ ! -f "$NOTIFICATION_FLAG" ]]; then
 *⤿ Waktu :* $(date '+%Y-%m-%d %H:%M:%S')
 ━━━━━━━━━━━━━"
 
-    # Buat file penanda
-    touch "$NOTIFICATION_FLAG"
-fi
+        # Buat file penanda
+        touch "$NOTIFICATION_FLAG"
+    fi
 
-echo "Server Fixing is running..."
+    echo "Server Fixing is running..."
 
-# Jalankan proses pengecekan service di latar belakang
-(
-    while true; do
-        clean_log  # Bersihkan log jika melebihi ukuran maksimal
-        check_service "paradis" "vmess"
-        check_service "sketsa" "vless"
-        check_service "drawit" "trojan"
-        sleep 60  # Pengecekan setiap 1 menit
-    done
-) &
+    # Jalankan proses pengecekan service di latar belakang
+    (
+        while true; do
+            clean_log  # Bersihkan log jika melebihi ukuran maksimal
+            check_service "paradis" "vmess"
+            check_service "sketsa" "vless"
+            check_service "drawit" "trojan"
+            sleep 60  # Pengecekan setiap 1 menit
+        done
+    ) &
 
-echo "Sukses! Script berjalan di latar belakang."
-echo "Log pengecekan disimpan di: $LOG_FILE"
+    echo "Sukses! Script berjalan di latar belakang."
+    echo "Log pengecekan disimpan di: $LOG_FILE"
+}
+
+# Jalankan fungsi utama
+main
