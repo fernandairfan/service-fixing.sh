@@ -3,7 +3,6 @@
 # Konfigurasi
 LOG_FILE="/var/log/service-fixing.log"
 MAX_LOG_SIZE=1048576  # 1MB
-NOTIFICATION_FLAG="/etc/service-fixing.notified"
 CONFIG_FILE="/etc/service-fixing.conf"
 SERVICE_FILE="/etc/systemd/system/service-fixing.service"
 
@@ -24,74 +23,27 @@ clean_log() {
     fi
 }
 
-# Fungsi memeriksa status service
-check_service() {
-    local service_name="$1"
-    local service_display_name="$2"
-    local status=$(systemctl is-active "$service_name")
-    local current_time=$(date '+%Y-%m-%d %H:%M:%S')
-
-    if [ "$status" != "active" ]; then
-        # Cek apakah service benar-benar dalam keadaan error (failed)
-        local is_failed=$(systemctl is-failed "$service_name")
-        if [ "$is_failed" == "failed" ]; then
-            local error_message="━━━━━━━━━━━━━
-*🔴 Server Monitoring*
-━━━━━━━━━━━━━
-*⤿ Domain :* $DOMAIN
-*⤿ Status Down :* $service_display_name 🔴
-*⤿ Waktu Down :* $current_time
-━━━━━━━━━━━━━"
-
-            send_telegram_notification "$error_message"
-            systemctl restart "$service_name"
-
-            local restart_message="━━━━━━━━━━━━━
-*✅ Server Monitoring*
-━━━━━━━━━━━━━
-*⤿ Domain :* $DOMAIN
-*⤿ Restart :* $service_display_name ✅
-*⤿ Waktu Restart :* $current_time
-━━━━━━━━━━━━━"
-
-            send_telegram_notification "$restart_message"
-            echo "[INFO] $current_time - $service_display_name restarted." >> "$LOG_FILE"
-        else
-            echo "[INFO] $current_time - $service_display_name is not active but not in failed state. No action taken." >> "$LOG_FILE"
-        fi
-    else
-        echo "[INFO] $current_time - $service_display_name is running normally." >> "$LOG_FILE"
-    fi
-}
-
 # Fungsi memeriksa log systemd untuk pesan warning
 check_journal_warnings() {
     local service_name="$1"
     local service_display_name="$2"
     local current_time=$(date '+%Y-%m-%d %H:%M:%S')
 
-    # Cek log systemd untuk pesan warning
+    # Cek log systemd untuk pesan warning "Journal was rotated"
     local warning_message=$(journalctl -u "$service_name" -p warning --since "5 minutes ago" | grep "Journal was rotated")
 
     if [ -n "$warning_message" ]; then
-        local warning_notification="━━━━━━━━━━━━━
+        # Jika pesan warning ditemukan, restart service
+        systemctl restart "$service_name"
+
+        # Kirim notifikasi ke Telegram
+        local restart_message="━━━━━━━━━━━━━
 *⚠️ Server Monitoring*
 ━━━━━━━━━━━━━
 *⤿ Domain :* $DOMAIN
-*⤿ Warning Detected :* $service_display_name ⚠️
-*⤿ Pesan Warning :* Journal was rotated
+*⤿ Service :* $service_display_name
+*⤿ Status :* Restarted due to journal rotation warning ⚠️
 *⤿ Waktu :* $current_time
-━━━━━━━━━━━━━"
-
-        send_telegram_notification "$warning_notification"
-        systemctl restart "$service_name"
-
-        local restart_message="━━━━━━━━━━━━━
-*✅ Server Monitoring*
-━━━━━━━━━━━━━
-*⤿ Domain :* $DOMAIN
-*⤿ Restart :* $service_display_name ✅
-*⤿ Waktu Restart :* $current_time
 ━━━━━━━━━━━━━"
 
         send_telegram_notification "$restart_message"
@@ -217,11 +169,8 @@ main() {
     echo "Service Fixing is running..."
     while true; do
         clean_log
-        check_service "paradis" "vmess"
-        check_service "sketsa" "vless"
-        check_service "drawit" "trojan"
 
-        # Cek log systemd untuk pesan warning
+        # Cek log systemd untuk pesan warning dan restart jika diperlukan
         check_journal_warnings "paradis" "vmess"
         check_journal_warnings "sketsa" "vless"
         check_journal_warnings "drawit" "trojan"
