@@ -12,7 +12,7 @@ send_telegram_notification() {
     curl -s -X POST "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" \
         -d chat_id="$TELEGRAM_CHAT_ID" \
         -d text="$message" \
-        -d parse_mode="Markdown"
+        -d parse_mode="Markdown" || echo "[ERROR] $(date '+%Y-%m-%d %H:%M:%S') - Failed to send Telegram notification." >> "$LOG_FILE"
 }
 
 # Fungsi untuk membersihkan log jika melebihi ukuran maksimal
@@ -40,7 +40,7 @@ check_service() {
 
         send_telegram_notification "$error_message"
 
-        systemctl restart "$service_name"
+        systemctl restart "$service_name" || echo "[ERROR] $(date '+%Y-%m-%d %H:%M:%S') - Failed to restart $service_display_name." >> "$LOG_FILE"
 
         local restart_message="━━━━━━━━━━━━━
 *✅ Server Monitoring | @fernandairfan*
@@ -68,7 +68,8 @@ After=network.target
 
 [Service]
 ExecStart=/usr/local/bin/service-fixing.sh
-Restart=always
+ExecStop=/usr/bin/pkill -f service-fixing.sh
+Restart=on-failure
 User=root
 Environment="TELEGRAM_BOT_TOKEN=$TELEGRAM_BOT_TOKEN"
 Environment="TELEGRAM_CHAT_ID=$TELEGRAM_CHAT_ID"
