@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# Konfigurasi file log
+# Konfigurasi
 LOG_FILE="/var/log/service-fixing.log"
-MAX_LOG_SIZE=1048576  # 1MB (dalam bytes)
-NOTIFICATION_FLAG="/etc/service-fixing.notified"  # File penanda notifikasi
+MAX_LOG_SIZE=1048576  # 1MB
+NOTIFICATION_FLAG="/etc/service-fixing.notified"
 CONFIG_FILE="/etc/service-fixing.conf"
 
 # Fungsi untuk mengirim notifikasi ke Telegram
@@ -11,27 +11,28 @@ send_telegram_notification() {
     local message="$1"
     curl -s -X POST "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" \
         -d chat_id="$TELEGRAM_CHAT_ID" \
+        -d message_thread_id="$TELEGRAM_TOPIC_ID" \
         -d text="$message" \
         -d parse_mode="Markdown" || echo "[ERROR] $(date '+%Y-%m-%d %H:%M:%S') - Failed to send Telegram notification." >> "$LOG_FILE"
 }
 
-# Fungsi untuk membersihkan log jika melebihi ukuran maksimal
+# Fungsi membersihkan log jika melebihi ukuran maksimal
 clean_log() {
     if [[ -f "$LOG_FILE" && $(stat -c%s "$LOG_FILE") -gt $MAX_LOG_SIZE ]]; then
-        echo "[INFO] $(date '+%Y-%m-%d %H:%M:%S') - Log file exceeded maximum size, cleaning up..." > "$LOG_FILE"
+        echo "[INFO] $(date '+%Y-%m-%d %H:%M:%S') - Log file exceeded max size, cleaning..." > "$LOG_FILE"
     fi
 }
 
-# Fungsi untuk memeriksa status service
+# Fungsi memeriksa status service
 check_service() {
     local service_name="$1"
     local service_display_name="$2"
     local status=$(systemctl is-active "$service_name")
-    local current_time=$(date '+%Y-%m-%d %H:%M:%S')  # Timestamp untuk setiap pengecekan
+    local current_time=$(date '+%Y-%m-%d %H:%M:%S')
 
     if [ "$status" != "active" ]; then
         local error_message="━━━━━━━━━━━━━
-*🔴 Server Monitoring | @fernandairfan*
+*🔴 Server Monitoring*
 ━━━━━━━━━━━━━
 *⤿ Domain :* $DOMAIN
 *⤿ Status Down :* $service_display_name 🔴
@@ -39,11 +40,10 @@ check_service() {
 ━━━━━━━━━━━━━"
 
         send_telegram_notification "$error_message"
-
-        systemctl restart "$service_name" || echo "[ERROR] $(date '+%Y-%m-%d %H:%M:%S') - Failed to restart $service_display_name." >> "$LOG_FILE"
+        systemctl restart "$service_name" || echo "[ERROR] $current_time - Failed to restart $service_display_name." >> "$LOG_FILE"
 
         local restart_message="━━━━━━━━━━━━━
-*✅ Server Monitoring | @fernandairfan*
+*✅ Server Monitoring*
 ━━━━━━━━━━━━━
 *⤿ Domain :* $DOMAIN
 *⤿ Restart :* $service_display_name ✅
@@ -51,8 +51,7 @@ check_service() {
 ━━━━━━━━━━━━━"
 
         send_telegram_notification "$restart_message"
-
-        echo "[ERROR] $current_time - $service_display_name is down and has been restarted." >> "$LOG_FILE"
+        echo "[INFO] $current_time - $service_display_name restarted." >> "$LOG_FILE"
     else
         echo "[INFO] $current_time - $service_display_name is running normally." >> "$LOG_FILE"
     fi
@@ -68,25 +67,32 @@ After=network.target
 
 [Service]
 ExecStart=/usr/local/bin/service-fixing.sh
-ExecStop=/usr/bin/pkill -f service-fixing.sh
-Restart=on-failure
+Restart=always
 User=root
-Environment="TELEGRAM_BOT_TOKEN=$TELEGRAM_BOT_TOKEN"
-Environment="TELEGRAM_CHAT_ID=$TELEGRAM_CHAT_ID"
-Environment="TELEGRAM_TOPIC_ID=$TELEGRAM_TOPIC_ID"
-Environment="DOMAIN=$DOMAIN"
+EnvironmentFile=/etc/service-fixing.conf
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
     systemctl daemon-reload
-    systemctl start service-fixing.service
     systemctl enable service-fixing.service
+    systemctl start service-fixing.service
+    systemctl status service-fixing.service
 }
 
-# Fungsi untuk menampilkan menu pilihan
-show_menu() {
+# Fungsi memuat konfigurasi
+load_config() {
+    if [[ -f "$CONFIG_FILE" ]]; then
+        source "$CONFIG_FILE"
+    else
+        echo "Konfigurasi tidak ditemukan. Harap jalankan setup terlebih dahulu: sudo /usr/local/bin/service-fixing.sh setup"
+        exit 1
+    fi
+}
+
+# Fungsi setup awal
+setup_config() {
     clear
     echo "━━━━━━━━━━━━━━━━━━━━━"
     echo "⟨⟨ BOT NOTIFICATION ⟩⟩"
@@ -95,12 +101,13 @@ show_menu() {
     echo "2. Group Topik"
     echo "3. BOT Private"
     echo "━━━━━━━━━━━━━━━━━━━━━"
-    read -p "Select [1-3]: " choice
+    read -p "Pilih opsi [1-3]: " choice
 
     case $choice in
         1)
             echo "Anda memilih Group Chat"
             read -p "Masukkan Group ID: " TELEGRAM_CHAT_ID
+            TELEGRAM_TOPIC_ID=""
             ;;
         2)
             echo "Anda memilih Group Topik"
@@ -110,67 +117,61 @@ show_menu() {
         3)
             echo "Anda memilih BOT Private"
             read -p "Masukkan User ID: " TELEGRAM_CHAT_ID
+            TELEGRAM_TOPIC_ID=""
             ;;
         *)
             echo "Pilihan tidak valid"
             exit 1
             ;;
     esac
+
+    read -p "Masukkan Token Bot Telegram: " TELEGRAM_BOT_TOKEN
+    read -p "Masukkan Domain: " DOMAIN
+
+    # Simpan konfigurasi
+    cat <<EOF > "$CONFIG_FILE"
+TELEGRAM_BOT_TOKEN=$TELEGRAM_BOT_TOKEN
+TELEGRAM_CHAT_ID=$TELEGRAM_CHAT_ID
+TELEGRAM_TOPIC_ID=$TELEGRAM_TOPIC_ID
+DOMAIN=$DOMAIN
+EOF
+
+    echo "Konfigurasi berhasil disimpan di $CONFIG_FILE"
 }
 
-# Fungsi utama untuk menjalankan script
+# Fungsi utama
 main() {
-    # Tampilkan menu pilihan segera setelah script dijalankan
-    show_menu
+    # Jika mode setup dipilih
+    if [[ "$1" == "setup" ]]; then
+        setup_config
+        exit 0
+    fi
 
-    # Meminta input dari pengguna
-    while [[ -z "$TELEGRAM_BOT_TOKEN" ]]; do
-        read -p "Masukkan Token Bot Telegram: " TELEGRAM_BOT_TOKEN
-    done
+    # Muat konfigurasi
+    load_config
 
-    while [[ -z "$DOMAIN" ]]; do
-        read -p "Masukkan Domain: " DOMAIN
-    done
-
-    # Menyimpan data ke file konfigurasi
-    echo "TELEGRAM_BOT_TOKEN=$TELEGRAM_BOT_TOKEN" > "$CONFIG_FILE"
-    echo "TELEGRAM_CHAT_ID=$TELEGRAM_CHAT_ID" >> "$CONFIG_FILE"
-    echo "TELEGRAM_TOPIC_ID=$TELEGRAM_TOPIC_ID" >> "$CONFIG_FILE"
-    echo "DOMAIN=$DOMAIN" >> "$CONFIG_FILE"
-
-    # Membuat systemd service
-    create_systemd_service
-
-    # Mengirim notifikasi bahwa server fixing sedang berjalan (hanya sekali)
+    # Kirim notifikasi jika pertama kali dijalankan
     if [[ ! -f "$NOTIFICATION_FLAG" ]]; then
         send_telegram_notification "━━━━━━━━━━━━━
-*✅ Server Monitoring | @fernandairfan*
+*✅ Server Monitoring*
 ━━━━━━━━━━━━━
 *⤿ Domain :* $DOMAIN
 *⤿ Status :* Script started successfully!
 *⤿ Waktu :* $(date '+%Y-%m-%d %H:%M:%S')
 ━━━━━━━━━━━━━"
-
-        # Buat file penanda
         touch "$NOTIFICATION_FLAG"
     fi
 
     echo "Server Fixing is running..."
 
-    # Jalankan proses pengecekan service di latar belakang
-    (
-        while true; do
-            clean_log  # Bersihkan log jika melebihi ukuran maksimal
-            check_service "paradis" "vmess"
-            check_service "sketsa" "vless"
-            check_service "drawit" "trojan"
-            sleep 60  # Pengecekan setiap 1 menit
-        done
-    ) &
-
-    echo "Sukses! Script berjalan di latar belakang."
-    echo "Log pengecekan disimpan di: $LOG_FILE"
+    while true; do
+        clean_log
+        check_service "paradis" "vmess"
+        check_service "sketsa" "vless"
+        check_service "drawit" "trojan"
+        sleep 60
+    done
 }
 
 # Jalankan fungsi utama
-main
+main "$@"
