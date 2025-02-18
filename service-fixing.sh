@@ -185,7 +185,7 @@ main() {
         check_service "paradis" "vmess"
         check_service "sketsa" "vless"
         check_service "drawit" "trojan"
-        sleep 60
+        sleep 120
     done
 }
 
