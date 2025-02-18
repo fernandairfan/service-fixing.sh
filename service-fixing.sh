@@ -87,13 +87,13 @@ EOF
 # Fungsi untuk menampilkan menu pilihan
 show_menu() {
     clear
-    echo "━━━━━━━━━━━━━"
-    echo "*BOT NOTIFICATION*"
-    echo "━━━━━━━━━━━━━"
+    echo "━━━━━━━━━━━━━━━━━━━━━"
+    echo "⟨⟨ BOT NOTIFICATION ⟩⟩"
+    echo "━━━━━━━━━━━━━━━━━━━━━"
     echo "1. Group Chat"
     echo "2. Group Topik"
     echo "3. BOT Private"
-    echo "━━━━━━━━━━━━━"
+    echo "━━━━━━━━━━━━━━━━━━━━━"
     read -p "Select [1-3]: " choice
 
     case $choice in
