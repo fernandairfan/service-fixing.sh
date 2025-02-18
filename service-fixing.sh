@@ -5,15 +5,16 @@ LOG_FILE="/var/log/service-fixing.log"
 MAX_LOG_SIZE=1048576  # 1MB
 NOTIFICATION_FLAG="/etc/service-fixing.notified"
 CONFIG_FILE="/etc/service-fixing.conf"
+SERVICE_FILE="/etc/systemd/system/service-fixing.service"
 
-# Fungsi untuk mengirim notifikasi ke Telegram
+# Fungsi mengirim notifikasi ke Telegram
 send_telegram_notification() {
     local message="$1"
     curl -s -X POST "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" \
         -d chat_id="$TELEGRAM_CHAT_ID" \
         -d message_thread_id="$TELEGRAM_TOPIC_ID" \
         -d text="$message" \
-        -d parse_mode="Markdown" || echo "[ERROR] $(date '+%Y-%m-%d %H:%M:%S') - Failed to send Telegram notification." >> "$LOG_FILE"
+        -d parse_mode="Markdown" >/dev/null 2>&1
 }
 
 # Fungsi membersihkan log jika melebihi ukuran maksimal
@@ -40,7 +41,7 @@ check_service() {
 ━━━━━━━━━━━━━"
 
         send_telegram_notification "$error_message"
-        systemctl restart "$service_name" || echo "[ERROR] $current_time - Failed to restart $service_display_name." >> "$LOG_FILE"
+        systemctl restart "$service_name"
 
         local restart_message="━━━━━━━━━━━━━
 *✅ Server Monitoring*
@@ -57,36 +58,12 @@ check_service() {
     fi
 }
 
-# Fungsi untuk membuat systemd service
-create_systemd_service() {
-    local service_file="/etc/systemd/system/service-fixing.service"
-    cat <<EOF > "$service_file"
-[Unit]
-Description=Service Fixing Script
-After=network.target
-
-[Service]
-ExecStart=/usr/local/bin/service-fixing.sh
-Restart=always
-User=root
-EnvironmentFile=/etc/service-fixing.conf
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-    systemctl daemon-reload
-    systemctl enable service-fixing.service
-    systemctl start service-fixing.service
-    systemctl status service-fixing.service
-}
-
 # Fungsi memuat konfigurasi
 load_config() {
     if [[ -f "$CONFIG_FILE" ]]; then
         source "$CONFIG_FILE"
     else
-        echo "Konfigurasi tidak ditemukan. Harap jalankan setup terlebih dahulu: sudo /usr/local/bin/service-fixing.sh setup"
+        echo "Konfigurasi tidak ditemukan. Harap jalankan setup terlebih dahulu: sudo bash /usr/local/bin/service-fixing.sh setup"
         exit 1
     fi
 }
@@ -137,6 +114,30 @@ DOMAIN=$DOMAIN
 EOF
 
     echo "Konfigurasi berhasil disimpan di $CONFIG_FILE"
+
+    # Buat systemd service
+    cat <<EOF > "$SERVICE_FILE"
+[Unit]
+Description=Service Fixing Script
+After=network.target
+
+[Service]
+ExecStart=/usr/local/bin/service-fixing.sh run
+Restart=always
+User=root
+EnvironmentFile=/etc/service-fixing.conf
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    # Reload systemd dan aktifkan service
+    systemctl daemon-reload
+    systemctl enable service-fixing.service
+    systemctl start service-fixing.service
+
+    echo "Service berhasil dibuat dan dijalankan!"
+    exit 0
 }
 
 # Fungsi utama
@@ -147,23 +148,20 @@ main() {
         exit 0
     fi
 
-    # Muat konfigurasi
-    load_config
-
-    # Kirim notifikasi jika pertama kali dijalankan
-    if [[ ! -f "$NOTIFICATION_FLAG" ]]; then
-        send_telegram_notification "━━━━━━━━━━━━━
-*✅ Server Monitoring*
-━━━━━━━━━━━━━
-*⤿ Domain :* $DOMAIN
-*⤿ Status :* Script started successfully!
-*⤿ Waktu :* $(date '+%Y-%m-%d %H:%M:%S')
-━━━━━━━━━━━━━"
-        touch "$NOTIFICATION_FLAG"
+    # Jika tidak dijalankan dengan `run`, maka jalankan setup dulu
+    if [[ "$1" != "run" ]]; then
+        if [[ ! -f "$CONFIG_FILE" ]]; then
+            echo "🚀 Setup pertama kali..."
+            setup_config
+        else
+            echo "✅ Konfigurasi sudah ada. Menjalankan sebagai service..."
+            exec systemctl start service-fixing.service
+        fi
     fi
 
-    echo "Server Fixing is running..."
-
+    # Load konfigurasi dan jalankan service
+    load_config
+    echo "Service Fixing is running..."
     while true; do
         clean_log
         check_service "paradis" "vmess"
