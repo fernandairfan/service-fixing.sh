@@ -4,12 +4,13 @@
 LOG_FILE="/var/log/service-fixing.log"
 MAX_LOG_SIZE=1048576  # 1MB (dalam bytes)
 NOTIFICATION_FLAG="/etc/service-fixing.notified"  # File penanda notifikasi
+CONFIG_FILE="/etc/service-fixing.conf"
 
 # Fungsi untuk mengirim notifikasi ke Telegram
 send_telegram_notification() {
     local message="$1"
     curl -s -X POST "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" \
-        -d chat_id="$TELEGRAM_USER_ID" \
+        -d chat_id="$TELEGRAM_CHAT_ID" \
         -d text="$message" \
         -d parse_mode="Markdown"
 }
@@ -30,11 +31,11 @@ check_service() {
 
     if [ "$status" != "active" ]; then
         local error_message="━━━━━━━━━━━━━
-🔴 Server Monitoring | @fernandairfan
- ━━━━━━━━━━━━━
-⤿ Domain : $DOMAIN
-⤿ Status Down : $service_display_name🔴
-⤿ Waktu Down : $current_time
+*🔴 Server Monitoring | @fernandairfan*
+━━━━━━━━━━━━━
+*⤿ Domain :* $DOMAIN
+*⤿ Status Down :* $service_display_name 🔴
+*⤿ Waktu Down :* $current_time
 ━━━━━━━━━━━━━"
 
         send_telegram_notification "$error_message"
@@ -42,11 +43,11 @@ check_service() {
         systemctl restart "$service_name"
 
         local restart_message="━━━━━━━━━━━━━
-✅ Server Monitoring | @fernandairfan
- ━━━━━━━━━━━━━
-⤿ Domain : $DOMAIN
-⤿ Restart : $service_display_name✅
-⤿ Waktu Restart : $current_time
+*✅ Server Monitoring | @fernandairfan*
+━━━━━━━━━━━━━
+*⤿ Domain :* $DOMAIN
+*⤿ Restart :* $service_display_name ✅
+*⤿ Waktu Restart :* $current_time
 ━━━━━━━━━━━━━"
 
         send_telegram_notification "$restart_message"
@@ -69,8 +70,9 @@ After=network.target
 ExecStart=/usr/local/bin/service-fixing.sh
 Restart=always
 User=root
-Environment="TELEGRAM_USER_ID=$TELEGRAM_USER_ID"
 Environment="TELEGRAM_BOT_TOKEN=$TELEGRAM_BOT_TOKEN"
+Environment="TELEGRAM_CHAT_ID=$TELEGRAM_CHAT_ID"
+Environment="TELEGRAM_TOPIC_ID=$TELEGRAM_TOPIC_ID"
 Environment="DOMAIN=$DOMAIN"
 
 [Install]
@@ -82,11 +84,40 @@ EOF
     systemctl enable service-fixing.service
 }
 
-# Meminta input dari pengguna
-while [[ -z "$TELEGRAM_USER_ID" ]]; do
-    read -p "Masukkan ID User Telegram: " TELEGRAM_USER_ID
-done
+# Fungsi untuk menampilkan menu pilihan
+show_menu() {
+    clear
+    echo "━━━━━━━━━━━━━"
+    echo "*BOT NOTIFICATION*"
+    echo "━━━━━━━━━━━━━"
+    echo "1. Group Chat"
+    echo "2. Group Topik"
+    echo "3. BOT Private"
+    echo "━━━━━━━━━━━━━"
+    read -p "Select [1-3]: " choice
 
+    case $choice in
+        1)
+            echo "Anda memilih Group Chat"
+            read -p "Masukkan Group ID: " TELEGRAM_CHAT_ID
+            ;;
+        2)
+            echo "Anda memilih Group Topik"
+            read -p "Masukkan Group ID: " TELEGRAM_CHAT_ID
+            read -p "Masukkan Topic ID: " TELEGRAM_TOPIC_ID
+            ;;
+        3)
+            echo "Anda memilih BOT Private"
+            read -p "Masukkan User ID: " TELEGRAM_CHAT_ID
+            ;;
+        *)
+            echo "Pilihan tidak valid"
+            exit 1
+            ;;
+    esac
+}
+
+# Meminta input dari pengguna
 while [[ -z "$TELEGRAM_BOT_TOKEN" ]]; do
     read -p "Masukkan Token Bot Telegram: " TELEGRAM_BOT_TOKEN
 done
@@ -95,10 +126,14 @@ while [[ -z "$DOMAIN" ]]; do
     read -p "Masukkan Domain: " DOMAIN
 done
 
+# Tampilkan menu pilihan
+show_menu
+
 # Menyimpan data ke file konfigurasi
-echo "TELEGRAM_USER_ID=$TELEGRAM_USER_ID" > /etc/service-fixing.conf
-echo "TELEGRAM_BOT_TOKEN=$TELEGRAM_BOT_TOKEN" >> /etc/service-fixing.conf
-echo "DOMAIN=$DOMAIN" >> /etc/service-fixing.conf
+echo "TELEGRAM_BOT_TOKEN=$TELEGRAM_BOT_TOKEN" > "$CONFIG_FILE"
+echo "TELEGRAM_CHAT_ID=$TELEGRAM_CHAT_ID" >> "$CONFIG_FILE"
+echo "TELEGRAM_TOPIC_ID=$TELEGRAM_TOPIC_ID" >> "$CONFIG_FILE"
+echo "DOMAIN=$DOMAIN" >> "$CONFIG_FILE"
 
 # Membuat systemd service
 create_systemd_service
@@ -106,11 +141,11 @@ create_systemd_service
 # Mengirim notifikasi bahwa server fixing sedang berjalan (hanya sekali)
 if [[ ! -f "$NOTIFICATION_FLAG" ]]; then
     send_telegram_notification "━━━━━━━━━━━━━
-✅ Server Monitoring | @fernandairfan
- ━━━━━━━━━━━━━
-⤿ Domain : $DOMAIN
-⤿ Status : Script started successfully!
-⤿ Waktu : $(date '+%Y-%m-%d %H:%M:%S')
+*✅ Server Monitoring | @fernandairfan*
+━━━━━━━━━━━━━
+*⤿ Domain :* $DOMAIN
+*⤿ Status :* Script started successfully!
+*⤿ Waktu :* $(date '+%Y-%m-%d %H:%M:%S')
 ━━━━━━━━━━━━━"
 
     # Buat file penanda
@@ -126,7 +161,7 @@ echo "Server Fixing is running..."
         check_service "paradis" "vmess"
         check_service "sketsa" "vless"
         check_service "drawit" "trojan"
-        sleep 5
+        sleep 60  # Pengecekan setiap 1 menit
     done
 ) &
 
